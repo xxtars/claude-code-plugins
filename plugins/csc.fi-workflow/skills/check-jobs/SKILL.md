@@ -17,18 +17,13 @@ If not found, suggest running `/csc.fi-workflow:configure`.
 
 ## Steps
 
-1. **Show queue**: Run on the cluster:
+1. **Show queue and recent jobs** in a single SSH call:
    ```bash
-   ssh <ssh_host> "squeue -u <slurm_user> -o '%.10i %.30j %.10T %.10M %.6D %.20R %.10l'"
+   ssh <ssh_host> "squeue -u <slurm_user> -o '%.10i %.30j %.10T %.10M %.6D %.20R %.10l' 2>/dev/null; echo '---'; sacct -u <slurm_user> --starttime=\$(date -d '3 days ago' +%Y-%m-%d) --format=JobID,JobName%30,State,Start,End,Elapsed -n 2>/dev/null"
    ```
+   Filter out `.batch` and `.extern` sub-jobs from sacct output.
 
-2. **Present results**: Show a clean summary table with job ID, name, state, elapsed time, and reason (if pending).
-
-3. **Check recently completed** (if requested or if queue is empty): Use `sacct` for recent jobs. Run the date calculation on the cluster (Linux) to avoid macOS `date` incompatibility:
-   ```bash
-   ssh <ssh_host> "sacct -u <slurm_user> --starttime=\$(date -d '3 days ago' +%Y-%m-%d) --format=JobID,JobName%30,State,Start,End,Elapsed -n"
-   ```
-   Filter out `.batch` and `.extern` sub-jobs for cleaner output.
+2. **Present results**: Show a clean summary with two sections — currently queued jobs and recently completed jobs.
 
 4. **Focus on current project**: The cluster may run jobs from multiple projects. If the project has a weekly log or LOG.md with known job names/IDs, cross-reference to highlight relevant jobs.
 

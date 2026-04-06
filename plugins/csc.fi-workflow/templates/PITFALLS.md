@@ -6,10 +6,10 @@ Reference this file when debugging. Append new entries when you discover a pitfa
 
 <!-- Example entry:
 
-## Torch compile cache corruption
-- **Symptom**: All vLLM jobs FAILED with "checksum mismatch"
-- **Root cause**: Shared torch compile cache between vLLM versions
-- **Fix**: Isolate cache directory per vLLM version, clear corrupted cache
-- **Date**: 2026-03-25
+## Descriptive title of the pitfall
+- **Symptom**: What you observed (error message, unexpected behavior)
+- **Root cause**: Why it happened
+- **Fix**: How you resolved it
+- **Date**: YYYY-MM-DD
 
 -->

@@ -15,10 +15,10 @@ Look for the Overleaf path in the project's `CLAUDE.md` (under "Overleaf" sectio
 
 1. `cd` into the overleaf subdirectory
 2. Check `git status` to review what changed
-3. Stage relevant files, commit with a concise message, push:
+3. Stage changed files (use specific filenames from `git status`, not `git add -A`), commit, push:
    ```bash
    cd overleaf/<project_id>
-   git add <changed files>
+   git add sections/experiments.tex references.bib   # example: only changed files
    git commit -m "<concise description>"
    git push
    ```
