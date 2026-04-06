@@ -9,21 +9,19 @@ Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/
 
 ## Steps
 
-1. Check if `CLAUDE.md` already has a `## Cluster` section. If so, show current settings and ask if the user wants to update.
+### Phase 1: Required (must collect)
 
-2. Collect the following from the user:
+1. Check if `CLAUDE.md` already has a `## Cluster` section. If so, show current settings and ask if the user wants to update or skip.
 
+2. Collect:
    - **ssh_host**: SSH host alias or hostname (e.g., `mahti.csc.fi` or an alias from `~/.ssh/config`)
    - **slurm_user**: SLURM username (for `squeue -u`)
    - **slurm_account**: SLURM account/project (for `#SBATCH --account`)
    - **remote_path**: Project path on the cluster (e.g., `/scratch/project_xxx/username/project-name`)
-   - **scratch_base**: Base scratch directory (optional, e.g., `/scratch/project_xxx/username`)
-   - **container_dir**: Where SIF/Singularity containers are stored (optional)
-   - **hf_cache**: HuggingFace cache path on the cluster (optional)
 
 3. Validate SSH connection: `ssh <ssh_host> "whoami && hostname"`. If it fails, help debug.
 
-4. Write or update the `## Cluster` section in `CLAUDE.md`:
+4. Write the `## Cluster` section in `CLAUDE.md`:
    ```markdown
    ## Cluster
    - Remote path: `<remote_path>`
@@ -32,11 +30,68 @@ Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/
    - SLURM account: `<slurm_account>`
    - All commands run from project root
    ```
-   Add optional fields only if provided (scratch_base, container_dir, hf_cache).
 
-5. Confirm success and suggest running `/csc.fi-workflow:init` to scaffold experiment files.
+### Phase 2: Optional (ask "Do you want to configure X?")
+
+**CSC Paths** — ask if the user works with containers or HuggingFace models:
+- Scratch base (e.g., `/scratch/project_xxx/username/`)
+- Datasets path
+- SIF container directory
+- SIF build template path
+- HuggingFace cache path
+- APPTAINER_TMPDIR
+
+If yes, append under Cluster:
+```markdown
+### CSC Paths
+- Scratch: `<scratch_base>`
+- Datasets: `<datasets_path>`
+- SIF 容器目录: `<container_dir>`
+- SIF 构建模板: `<build_template>`
+- HF cache: `<hf_cache>`
+- APPTAINER_TMPDIR: `<tmpdir>`
+```
+
+**GitHub SSH** — ask if local and cluster use different GitHub SSH configs:
+- Local SSH host alias (e.g., `github-xxtars`)
+- Cluster SSH host (default: `github.com`)
+
+If yes, append:
+```markdown
+### GitHub SSH
+- Local: host alias `<local_alias>` → `git@<local_alias>:username/<repo>.git`
+- CSC: `<cluster_host>` → `git@<cluster_host>:username/<repo>.git`
+```
+
+**vLLM** — ask if the project uses vLLM on the cluster:
+- Deploy script convention
+- Health check endpoint
+
+If yes, append:
+```markdown
+## vLLM (CSC)
+- deploy 脚本在容器内启动 vLLM server，run 脚本等待就绪后调用
+- 健康检查用 `curl -s http://localhost:8000/v1/models`
+```
+
+**Overleaf** — ask if there's an Overleaf paper:
+- Overleaf project path
+- Target venue
+
+If yes, append:
+```markdown
+## Overleaf
+- Path: `overleaf/<project_id>/`
+- Venue: <venue>
+```
+
+### Phase 3: Finish
+
+5. Show the final CLAUDE.md Cluster section for confirmation.
+6. Suggest running `/csc.fi-workflow:init` to scaffold experiment files if `experiments/` doesn't exist.
 
 ## Notes
-- If the user already has a working SSH alias, use that directly
-- Only ask for optional fields if the user's workflow involves containers or HuggingFace
-- Do NOT create a separate config file — CLAUDE.md IS the config
+- Do NOT create separate config files — CLAUDE.md IS the config
+- If CLAUDE.md already has sections, update rather than duplicate
+- Skip optional phases if the user declines — they can always re-run `/configure` later
+- Collect all info by asking questions BEFORE writing, then write once
