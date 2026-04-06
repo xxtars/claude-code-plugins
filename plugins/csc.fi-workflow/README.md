@@ -25,7 +25,7 @@ Rules are automatically loaded into every conversation. They guide Claude's beha
 ## Install
 
 ```bash
-claude plugin install xxtars/csc.fi-workflow
+claude plugin install xxtars/claude-code-plugins/csc.fi-workflow
 ```
 
 ## Quick Start

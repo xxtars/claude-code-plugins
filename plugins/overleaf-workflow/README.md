@@ -29,7 +29,7 @@ When you edit any file under `overleaf/`, the writing style rules are automatica
 ## Install
 
 ```bash
-claude plugin install xxtars/overleaf-workflow
+claude plugin install xxtars/claude-code-plugins/overleaf-workflow
 ```
 
 ## Quick Start
