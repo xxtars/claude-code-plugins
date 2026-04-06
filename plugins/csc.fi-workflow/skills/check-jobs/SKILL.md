@@ -24,9 +24,9 @@ If not found, suggest running `/csc.fi-workflow:configure`.
 
 2. **Present results**: Show a clean summary table with job ID, name, state, elapsed time, and reason (if pending).
 
-3. **Check recently completed** (if requested or if queue is empty): Use `sacct` for recent jobs:
+3. **Check recently completed** (if requested or if queue is empty): Use `sacct` for recent jobs. Run the date calculation on the cluster (Linux) to avoid macOS `date` incompatibility:
    ```bash
-   ssh <ssh_host> "sacct -u <slurm_user> --starttime=$(date -d '3 days ago' +%Y-%m-%d) --format=JobID,JobName%30,State,Start,End,Elapsed -n"
+   ssh <ssh_host> "sacct -u <slurm_user> --starttime=\$(date -d '3 days ago' +%Y-%m-%d) --format=JobID,JobName%30,State,Start,End,Elapsed -n"
    ```
    Filter out `.batch` and `.extern` sub-jobs for cleaner output.
 
@@ -34,6 +34,6 @@ If not found, suggest running `/csc.fi-workflow:configure`.
 
 ## Notes
 - NEVER use `squeue` with the `-uall` flag (can cause memory issues on large clusters)
-- `sacct` date format may vary by system — if `date -d` fails (macOS), try `date -v-3d`
+- Always run `date` inside the SSH command (on the cluster), not locally — macOS and Linux `date` syntax differs
 - If the user asks about a specific job, use `sacct -j <jobid>` or `scontrol show job <jobid>` for details
 - For job output logs, read from the SLURM output path (typically in `logs/` or `slurm-*.out`)

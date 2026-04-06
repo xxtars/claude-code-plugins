@@ -1,11 +1,11 @@
 ---
 name: configure
-description: Configure SLURM cluster connection for this project. Use when user first installs the plugin, says "configure slurm", or needs to update cluster settings.
+description: Configure SLURM cluster connection for this project. Use when user first installs the plugin, says "configure cluster", "configure slurm", or needs to update cluster settings. Do NOT use for Overleaf — that's /overleaf-workflow:configure.
 ---
 
 # Configure SLURM Workflow
 
-Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/sync`, `/check-jobs`, `/update-log`) can read the connection info.
+Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/csc.fi-workflow:sync`, `/csc.fi-workflow:check-jobs`, `/csc.fi-workflow:update-log`) can read the connection info.
 
 ## Steps
 
@@ -46,8 +46,8 @@ If yes, append under Cluster:
 ### CSC Paths
 - Scratch: `<scratch_base>`
 - Datasets: `<datasets_path>`
-- SIF 容器目录: `<container_dir>`
-- SIF 构建模板: `<build_template>`
+- SIF container directory: `<container_dir>`
+- SIF build template: `<build_template>`
 - HF cache: `<hf_cache>`
 - APPTAINER_TMPDIR: `<tmpdir>`
 ```
@@ -64,34 +64,22 @@ If yes, append:
 ```
 
 **vLLM** — ask if the project uses vLLM on the cluster:
-- Deploy script convention
-- Health check endpoint
 
 If yes, append:
 ```markdown
 ## vLLM (CSC)
-- deploy 脚本在容器内启动 vLLM server，run 脚本等待就绪后调用
-- 健康检查用 `curl -s http://localhost:8000/v1/models`
-```
-
-**Overleaf** — ask if there's an Overleaf paper:
-- Overleaf project path
-- Target venue
-
-If yes, append:
-```markdown
-## Overleaf
-- Path: `overleaf/<project_id>/`
-- Venue: <venue>
+- deploy script starts vLLM server inside container; run scripts wait for readiness then call API
+- Health check: `curl -s http://localhost:8000/v1/models`
 ```
 
 ### Phase 3: Finish
 
-5. Show the final CLAUDE.md Cluster section for confirmation.
+5. Show the final CLAUDE.md for confirmation.
 6. Suggest running `/csc.fi-workflow:init` to scaffold experiment files if `experiments/` doesn't exist.
 
 ## Notes
 - Do NOT create separate config files — CLAUDE.md IS the config
 - If CLAUDE.md already has sections, update rather than duplicate
-- Skip optional phases if the user declines — they can always re-run `/configure` later
+- Skip optional phases if the user declines — they can always re-run `/csc.fi-workflow:configure` later
 - Collect all info by asking questions BEFORE writing, then write once
+- Do NOT configure Overleaf here — use `/overleaf-workflow:configure` for that

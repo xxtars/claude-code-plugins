@@ -13,22 +13,71 @@ Read the project's `CLAUDE.md` for the Cluster section (ssh_host, remote_path). 
 
 ## Steps
 
-1. Create the experiment directory structure:
-   ```
-   experiments/
-     PLAN.md       ← Research direction, pipeline design, experiment planning
-     LOG.md        ← Progress tracking (status table + milestone results)
-     PITFALLS.md   ← Lessons learned (reference when stuck, append when bitten)
-     weekly/       ← Detailed weekly job records + intermediate results
+1. Create the experiment directory:
+   ```bash
+   mkdir -p experiments/weekly
    ```
 
-2. Copy templates from the plugin's `templates/` directory. Adapt as needed:
-   - `experiments/PLAN.md` — empty scaffold with section headers
-   - `experiments/LOG.md` — status table + weekly log index
-   - `experiments/PITFALLS.md` — empty with format example
-   - `experiments/weekly/` — empty, will be populated by `/csc.fi-workflow:update-log`
+2. Create `experiments/PLAN.md`:
+   ```markdown
+   # Experiment Plan
 
-3. If `CLAUDE.md` doesn't have a Cluster section yet, ask the user for the remote path and add it.
+   ## Research Goal
+   <!-- What are you trying to achieve? -->
+
+   ## Pipeline Overview
+   <!-- High-level description of your data → training → evaluation pipeline -->
+
+   ## Experiment Design
+   <!-- What experiments will you run? What are the key variables? -->
+
+   ## Evaluation
+   <!-- How will you measure success? Metrics, baselines, benchmarks -->
+   ```
+
+3. Create `experiments/LOG.md`:
+   ```markdown
+   # Experiment Log
+
+   Progress tracking. Research plan in [PLAN.md](PLAN.md), detailed records in weekly logs, lessons in [PITFALLS.md](PITFALLS.md).
+
+   ---
+
+   ## Stage Progress
+
+   | Stage | Status | Notes |
+   |-------|--------|-------|
+   | | | |
+
+   ---
+
+   ## Weekly Logs
+
+   | Week | File | Summary |
+   |------|------|---------|
+   | | | |
+
+   > Last updated: YYYY-MM-DD
+   ```
+
+4. Create `experiments/PITFALLS.md`:
+   ```markdown
+   # Pitfalls & Lessons Learned
+
+   Reference this file when debugging. Append new entries when you discover a pitfall.
+
+   ---
+
+   <!-- Example entry:
+   ## Torch compile cache corruption
+   - **Symptom**: All vLLM jobs FAILED with "checksum mismatch"
+   - **Root cause**: Shared torch compile cache between vLLM versions
+   - **Fix**: Isolate cache directory per vLLM version, clear corrupted cache
+   - **Date**: 2026-03-25
+   -->
+   ```
+
+5. If `CLAUDE.md` doesn't have a Cluster section yet, suggest running `/csc.fi-workflow:configure`.
 
 ## Notes
 - Do NOT overwrite existing files — ask before replacing

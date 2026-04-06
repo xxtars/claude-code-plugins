@@ -1,9 +1,9 @@
 ---
 name: sync
-description: Sync local code to SLURM cluster. Use when user says "sync", "push to cluster", "push to CSC", or after code changes that need to run on the cluster.
+description: Sync local code to SLURM cluster via git. Use when user says "sync", "sync code", "push to cluster", "push to CSC", or after code changes that need to run on the cluster. Do NOT use for Overleaf sync — that's /overleaf-workflow:sync.
 ---
 
-# Sync to Cluster
+# Sync Code to Cluster
 
 Push local code to the SLURM cluster via GitHub.
 
