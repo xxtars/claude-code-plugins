@@ -7,8 +7,13 @@ description: Sync local code to SLURM cluster. Use when user says "sync", "push 
 
 Push local code to the SLURM cluster via GitHub.
 
-## Config
-!`cat ~/.config/csc.fi-workflow/config.json 2>/dev/null || echo '⚠️ Not configured. Run /csc.fi-workflow:configure first.'`
+## Prerequisites
+
+Read the project's `CLAUDE.md` for:
+- **ssh_host**: from the `Usage: ssh <host> ...` line in the Cluster section
+- **remote_path**: from the `Remote path` line in the Cluster section
+
+If not found, suggest running `/csc.fi-workflow:configure`.
 
 ## Flow
 
@@ -24,7 +29,7 @@ local commit → git push → ssh pull on cluster
 
 3. **Push**: `git push` to the remote.
 
-4. **Pull on cluster**: Read the project's remote path from `CLAUDE.md` (look for "Remote path" under Cluster section), then:
+4. **Pull on cluster**:
    ```bash
    ssh <ssh_host> "cd <remote_path> && git pull"
    ```
@@ -34,7 +39,6 @@ local commit → git push → ssh pull on cluster
 ### Error handling
 - If push fails (no remote, auth issue), help debug but don't force-push
 - If pull fails on cluster (merge conflict, dirty state), report the error — don't run `git reset` without user approval
-- If remote path is not found in CLAUDE.md, ask the user and suggest running `/csc.fi-workflow:init`
 
 ## Notes
 - This skill only syncs code. It does NOT submit SLURM jobs — that's the user's choice after sync

@@ -62,21 +62,18 @@ experiments/
 
 ## Configuration
 
-After install, run `/csc.fi-workflow:configure` to set up:
+After install, run `/csc.fi-workflow:configure` in your project. It adds a `## Cluster` section to your project's `CLAUDE.md`:
 
-```json
-{
-  "ssh_host": "cluster.example.com",
-  "slurm_user": "username",
-  "slurm_account": "project_id",
-  "scratch_base": "/scratch/project_id/username",
-  "container_dir": "/scratch/project_id/username/containers",
-  "hf_cache": "/scratch/project_id/username/.cache/huggingface",
-  "github_host": "github.com"
-}
+```markdown
+## Cluster
+- Remote path: `/scratch/project_xxx/username/project-name`
+- Usage: `ssh cluster.example.com "cd /scratch/.../project-name && <command>"`
+- SLURM user: `username`
+- SLURM account: `project_id`
+- All commands run from project root
 ```
 
-Config is stored at `~/.config/csc.fi-workflow/config.json` and shared across all projects.
+No separate config files — `CLAUDE.md` is the single source of truth. Each project has its own config, fully self-contained.
 
 ## License
 

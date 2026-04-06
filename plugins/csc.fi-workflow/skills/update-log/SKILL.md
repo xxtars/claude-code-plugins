@@ -7,8 +7,13 @@ description: Update experiment logs with job results from the cluster. Use when 
 
 Record job results into `experiments/LOG.md` and the current weekly log.
 
-## Config
-!`cat ~/.config/csc.fi-workflow/config.json 2>/dev/null || echo '⚠️ Not configured. Run /csc.fi-workflow:configure first.'`
+## Prerequisites
+
+Read the project's `CLAUDE.md` for:
+- **ssh_host**: from the Cluster section
+- **slurm_user**: from the Cluster section
+
+If not found, suggest running `/csc.fi-workflow:configure`.
 
 ## File structure
 
