@@ -1,0 +1,8 @@
+{
+  "name": "csc.fi-workflow",
+  "description": "CSC (Finland) SLURM cluster workflow for ML research: sync code, check jobs, manage experiment logs via Apptainer on Mahti/Puhti.",
+  "author": {
+    "name": "Bohao Xing",
+    "email": "xxtar12138@gmail.com"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "xxtars-plugins",
+  "description": "Personal Claude Code plugins for ML research workflow",
+  "owner": {
+    "name": "Bohao Xing",
+    "email": "xxtar12138@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "csc.fi-workflow",
+      "description": "CSC (Finland) SLURM cluster workflow: sync code, check jobs, manage experiment logs via Apptainer on Mahti/Puhti.",
+      "source": "./plugins/csc.fi-workflow",
+      "category": "development"
+    },
+    {
+      "name": "overleaf-workflow",
+      "description": "Overleaf paper writing workflow: sync via git, academic writing conventions, reference management.",
+      "source": "./plugins/overleaf-workflow",
+      "category": "productivity"
+    }
+  ]
+}
