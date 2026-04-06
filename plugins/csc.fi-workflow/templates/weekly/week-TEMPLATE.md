@@ -2,9 +2,9 @@
 
 ## Job History
 
-| Job Name | Job ID | Pipeline | Dataset | Partition | Submitted | Started | Finished | Status |
-|----------|--------|----------|---------|-----------|-----------|---------|----------|--------|
-| | | | | | | | | |
+| Job Name | Job ID | Pipeline | Dataset | Partition | Submitted | Started | Finished | Status | Commit |
+|----------|--------|----------|---------|-----------|-----------|---------|----------|--------|--------|
+| | | | | | | | | | |
 
 ---
 

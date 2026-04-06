@@ -58,3 +58,47 @@ Key principles:
 - Prior work by ascending limitation: A lacks X → B adds X but lacks Y → we address Y
 - Motivation before mechanism: explain *why* before *how*
 - Don't repeat abstract verbatim — parallel structure but different wording
+
+## Method (3–5 subsections)
+
+Core of the paper. Reader should be able to reimplement from this section alone.
+
+Structure:
+1. **Overview/Problem formulation**: Define notation, input/output, and objective. Include a figure showing the overall pipeline
+2. **Component subsections**: One subsection per key component. Each follows: motivation → formulation → explanation
+3. **Training/Inference procedure** (if applicable): Loss functions, optimization details, any inference-time differences
+
+Key principles:
+- Define before use: every symbol, term, and abbreviation must be introduced before it appears in an equation
+- Equations earn their place: only include equations that are referenced or necessary for understanding. Inline math for simple expressions, display math for key formulations
+- Figure-text alignment: every figure must be referenced in the text, and should clarify something words alone cannot
+- No implementation details here — hyperparameters, batch sizes, etc. go in Experiments
+
+## Experiments (4–6 subsections)
+
+Validates the claims. Reader should trust the results after this section.
+
+Typical structure:
+1. **Setup**: Datasets, metrics, baselines, implementation details (hyperparameters, hardware, training time)
+2. **Main results** (Table 1): Compare against baselines on primary benchmarks. Bold best, underline second-best
+3. **Ablation studies**: Remove/vary one component at a time to show each contributes
+4. **Analysis**: Qualitative examples, failure cases, visualizations
+5. **Additional experiments** (optional): Cross-dataset generalization, efficiency comparison
+
+Key principles:
+- Every table/figure needs a takeaway sentence in the text ("Table 1 shows that our method outperforms X by Y% on Z")
+- Ablations must isolate variables — change one thing at a time
+- Report standard deviations or confidence intervals when possible
+- Include failure cases — shows honesty and helps readers understand limitations
+- Implementation details should be sufficient for reproduction (or cite supplementary)
+
+## Page limits by venue
+
+When editing, be aware of the main-body page limit for the configured venue:
+- **NeurIPS**: 10 pages (main body), unlimited appendix
+- **ICML**: 9 pages (main body), unlimited appendix
+- **CVPR/ICCV/ECCV**: 8 pages (main body + references), limited supplementary
+- **ACL/EMNLP**: 8 pages (long), 4 pages (short), unlimited appendix
+- **AAAI**: 8 pages (main body + references)
+
+If approaching the limit, flag to the user rather than silently trimming content.

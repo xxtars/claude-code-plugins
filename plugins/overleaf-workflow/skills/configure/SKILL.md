@@ -13,21 +13,25 @@ Set up an Overleaf project for local git-based editing.
    - **Overleaf git URL**: `https://git.overleaf.com/<project_id>` (found in Overleaf → Menu → Git)
    - **Target venue** (optional): e.g., NeurIPS, ICML, CVPR — affects page limits and style guidance
 
-2. Clone the Overleaf repo. **This step requires user interaction** (Overleaf prompts for credentials), so ask the user to run it themselves:
+2. **Validate the URL**: Must match the pattern `https://git.overleaf.com/<project_id>` where `<project_id>` is a 24-character hex string. If the URL doesn't match:
+   - If it looks like a regular Overleaf URL (`https://www.overleaf.com/project/...`), extract the project ID and convert to git URL
+   - Otherwise, warn the user and ask them to find the correct URL in Overleaf → Menu → Git
+
+3. Clone the Overleaf repo. **This step requires user interaction** (Overleaf prompts for credentials), so ask the user to run it themselves:
    ```
    ! git clone https://git.overleaf.com/<project_id> overleaf/<project_id>
    ```
 
-3. Add `overleaf/` to the main project's `.gitignore` if not already there — the overleaf repo is independent from the main project git.
+4. Add `overleaf/` to the main project's `.gitignore` if not already there — the overleaf repo is independent from the main project git.
 
-4. Record the configuration in the project's `CLAUDE.md`:
+5. Record the configuration in the project's `CLAUDE.md`:
    ```markdown
    ## Overleaf
    - Path: `overleaf/<project_id>/`
    - Venue: <venue>
    ```
 
-5. Verify by listing the tex files:
+6. Verify by listing the tex files:
    ```bash
    ls overleaf/<project_id>/*.tex overleaf/<project_id>/sections/*.tex
    ```

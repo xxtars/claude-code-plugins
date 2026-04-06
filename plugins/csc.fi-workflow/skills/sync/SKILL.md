@@ -29,12 +29,18 @@ local commit → git push → ssh pull on cluster
 
 3. **Push**: `git push` to the remote.
 
-4. **Pull on cluster**:
+4. **Verify remote path exists**:
+   ```bash
+   ssh <ssh_host> "test -d <remote_path> && echo 'OK' || echo 'MISSING'"
+   ```
+   If MISSING, report the error and suggest checking the path in CLAUDE.md. Do NOT proceed.
+
+5. **Pull on cluster**:
    ```bash
    ssh <ssh_host> "cd <remote_path> && git pull"
    ```
 
-5. **Confirm**: Report success and show the latest commit hash on both sides.
+6. **Confirm**: Report success and show the latest commit hash on both sides.
 
 ### Error handling
 - If push fails (no remote, auth issue), help debug but don't force-push

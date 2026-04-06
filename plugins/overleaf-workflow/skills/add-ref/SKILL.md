@@ -16,13 +16,20 @@ Add a BibTeX entry to the paper's `.bib` file.
    - If the user provides a URL (arXiv, etc.): fetch the page and extract citation info
    - If the user provides raw BibTeX: use it directly
 
-3. **Check for duplicates**: Search the bib file for the same title or author+year combo.
+3. **Check for duplicates**: Search the bib file for the same title or author+year combo. Also check by DOI if available.
 
 4. **Choose a citation key**: Follow the existing convention in the bib file (e.g., `lastname2025keyword`). Scan existing keys to match the pattern.
+   - **Collision check**: If the generated key already exists in the bib file, warn the user and suggest an alternative (e.g., append `b`: `smith2025imagenetb`). NEVER silently overwrite an existing entry.
 
-5. **Append to the bib file**: Add the entry at the end (or in alphabetical order if the file is sorted).
+5. **Validate BibTeX syntax** before writing:
+   - All braces `{}` are balanced
+   - Required fields present (author, title, year, and venue/journal for non-arXiv)
+   - No stray characters that would break LaTeX compilation
+   - If validation fails, show the issue and fix it before appending
 
-6. **Report**: Show the citation key so the user can use `\cite{key}` in the tex file.
+6. **Append to the bib file**: Add the entry at the end (or in alphabetical order if the file is sorted).
+
+7. **Report**: Show the citation key so the user can use `\cite{key}` in the tex file.
 
 ## BibTeX quality checklist
 - All required fields present: author, title, year, venue/journal

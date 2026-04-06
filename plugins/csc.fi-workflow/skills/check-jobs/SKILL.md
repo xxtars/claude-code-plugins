@@ -25,7 +25,21 @@ If not found, suggest running `/csc.fi-workflow:configure`.
 
 2. **Present results**: Show a clean summary with two sections — currently queued jobs and recently completed jobs.
 
-4. **Focus on current project**: The cluster may run jobs from multiple projects. If the project has a weekly log or LOG.md with known job names/IDs, cross-reference to highlight relevant jobs.
+3. **Diagnose failed jobs**: For any job with state FAILED, TIMEOUT, or OUT_OF_MEMORY, automatically fetch details:
+   ```bash
+   ssh <ssh_host> "scontrol show job <jobid> 2>/dev/null | grep -E 'StdErr|ExitCode|Reason'"
+   ```
+   Then read the last 30 lines of the stderr file to show the error:
+   ```bash
+   ssh <ssh_host> "tail -30 <stderr_path>"
+   ```
+   Summarize the failure reason for the user. If it's a new type of failure, suggest adding to `experiments/PITFALLS.md`.
+
+4. **Focus on current project**: The cluster may run jobs from multiple projects. To filter:
+   - Read the current weekly log (`experiments/weekly/week-*.md`) and `experiments/LOG.md` for known job names
+   - From `squeue` and `sacct` output, highlight jobs whose name matches known project jobs
+   - Jobs not matching any known name: show in a separate "Other projects" section (collapsed/dimmed)
+   - If no weekly log exists, fall back to showing all jobs for the user
 
 ## Notes
 - NEVER use `squeue` with the `-uall` flag (can cause memory issues on large clusters)

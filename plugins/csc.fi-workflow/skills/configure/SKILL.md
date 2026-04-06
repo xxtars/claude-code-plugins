@@ -21,7 +21,13 @@ Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/
 
 3. Validate SSH connection: `ssh <ssh_host> "whoami && hostname"`. If it fails, help debug.
 
-4. Write the `## Cluster` section in `CLAUDE.md`:
+4. Validate remote path is accessible and writable:
+   ```bash
+   ssh <ssh_host> "test -d <remote_path> && test -w <remote_path> && echo 'OK' || echo 'ERROR: path missing or not writable'"
+   ```
+   If it fails, help the user correct the path before proceeding.
+
+5. Write the `## Cluster` section in `CLAUDE.md`:
    ```markdown
    ## Cluster
    - Remote path: `<remote_path>`
@@ -74,8 +80,8 @@ If yes, append:
 
 ### Phase 3: Finish
 
-5. Show the final CLAUDE.md for confirmation.
-6. Suggest running `/csc.fi-workflow:init` to scaffold experiment files if `experiments/` doesn't exist.
+6. Show the final CLAUDE.md for confirmation.
+7. Suggest running `/csc.fi-workflow:init` to scaffold experiment files if `experiments/` doesn't exist.
 
 ## Notes
 - Do NOT create separate config files — CLAUDE.md IS the config
