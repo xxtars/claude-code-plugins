@@ -12,6 +12,7 @@ Provides a structured workflow for syncing code, monitoring jobs, and tracking e
 | Init | `/csc.fi-workflow:init` | Scaffold experiment management files for a new project |
 | Sync | `/csc.fi-workflow:sync` | Push code to cluster: `commit → push → ssh pull` |
 | Check Jobs | `/csc.fi-workflow:check-jobs` | Query SLURM queue and recent job status |
+| Submit | `/csc.fi-workflow:submit` | Submit SLURM job and auto-record in experiment log |
 | Update Log | `/csc.fi-workflow:update-log` | Record job results into structured experiment logs |
 
 ## Rules (always-on)
@@ -99,6 +100,19 @@ Queries `squeue` (active) and `sacct` (recent 3 days) in a single SSH call.
 - **Project-level filtering**: Reads job names from your weekly log and LOG.md to identify which jobs belong to the current project. Jobs from other projects are shown separately so you can focus on what matters
 - Filters out `.batch` and `.extern` sub-jobs from sacct output
 - All timestamps use the cluster's timezone (via remote `date` command, not local)
+
+### `/csc.fi-workflow:submit`
+
+Submits a SLURM job and **automatically records** it in the experiment log. Replaces the manual workflow of "sbatch → then remember to update the log".
+
+**What it does:**
+1. Runs `sbatch` on the cluster and captures the job ID
+2. Gets the current git commit hash
+3. Adds a row to the weekly log's Job History table (job name, ID, partition, submitted date, commit hash, status=PENDING)
+4. Updates the corresponding stage in LOG.md if applicable
+5. Reports a clean summary
+
+Use this instead of raw `sbatch` whenever you want automatic tracking.
 
 ### `/csc.fi-workflow:update-log`
 
