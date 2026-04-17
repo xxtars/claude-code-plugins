@@ -10,11 +10,12 @@
 
 ## Verified Results
 
-<!-- Only write numbers here after reading them from actual output files on the cluster.
+<!-- Only write numbers here after reading them from actual output files.
      Tag each result: "verified from <path>, <date>" -->
 
 ---
 
 ## Notes
 
-<!-- Observations, decisions, analysis. No raw numbers that may become stale. -->
+<!-- Observations, decisions, analysis. No raw numbers that may become stale.
+     When a result here forces a Story/Design change in PLAN.md, add an L4 Iteration Log entry there. -->

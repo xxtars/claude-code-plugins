@@ -1,0 +1,8 @@
+{
+  "name": "research-workflow",
+  "description": "Research workflow scaffolding: four-layer PLAN (Story / Design / Execution / Iteration), LOG + weekly + PITFALLS conventions, and an iterate skill that feeds results back into story and design.",
+  "author": {
+    "name": "Bohao Xing",
+    "email": "xxtar12138@gmail.com"
+  }
+}

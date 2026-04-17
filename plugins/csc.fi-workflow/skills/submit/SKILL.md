@@ -35,7 +35,7 @@ git rev-parse --short HEAD
 ### 3. Auto-record in weekly log
 
 Find or create the current weekly log (`experiments/weekly/week-YYYY-MM-DD.md`, Monday date).
-If the file doesn't exist, create it from the template.
+If the file doesn't exist, create it from `research-workflow/templates/weekly/week-TEMPLATE.md` (requires `research-workflow` plugin).
 
 Add a row to the **Job History** table:
 
@@ -44,7 +44,7 @@ Add a row to the **Job History** table:
 | `<job-name>` | `<job-id>` | `<pipeline>` | `<dataset>` | `<partition>` | `<today>` | | | PENDING | `<commit>` |
 
 - **Job Name**: from `--job-name` flag or sbatch script `#SBATCH --job-name`
-- **Pipeline**: infer from context (e.g., "NL GRPO", "eval", "baseline")
+- **Pipeline**: infer from context (e.g., training stage, evaluation, baseline)
 - **Dataset**: infer from context or args if available
 - **Partition**: from sbatch script or `--partition` flag
 - **Submitted**: today's date (YYYY-MM-DD)

@@ -2,14 +2,20 @@
 
 A [Claude Code](https://claude.ai/code) plugin for ML researchers working on [CSC](https://www.csc.fi/) (Finland's IT Center for Science) SLURM clusters (Mahti, Puhti).
 
-Provides a structured workflow for syncing code, monitoring jobs, and tracking experiment progress via Apptainer containers — so you can focus on research instead of cluster logistics.
+Provides a structured workflow for syncing code, monitoring jobs, and recording experiment results on CSC clusters — so you can focus on research instead of cluster logistics.
+
+## Companion plugins
+
+File conventions for `experiments/PLAN.md`, `LOG.md`, `weekly/`, and `PITFALLS.md` are defined in **`research-workflow`** (same marketplace). This plugin writes into those files but doesn't own them.
+
+- To scaffold a new project: `/research-workflow:init` first, then `/csc.fi-workflow:configure`
+- To reconcile results with research plan: `/research-workflow:iterate`
 
 ## Skills
 
 | Skill | Command | Description |
 |-------|---------|-------------|
 | Configure | `/csc.fi-workflow:configure` | Set up cluster connection (SSH, account, paths) |
-| Init | `/csc.fi-workflow:init` | Scaffold experiment management files for a new project |
 | Sync | `/csc.fi-workflow:sync` | Push code to cluster: `commit → push → ssh pull` |
 | Check Jobs | `/csc.fi-workflow:check-jobs` | Query SLURM queue and recent job status |
 | Submit | `/csc.fi-workflow:submit` | Submit SLURM job and auto-record in experiment log |
@@ -17,10 +23,11 @@ Provides a structured workflow for syncing code, monitoring jobs, and tracking e
 
 ## Rules (always-on)
 
-Rules are automatically loaded into every conversation. They guide Claude's behavior when writing scripts or managing experiment files for this project.
+Rules are automatically loaded into every conversation. They guide Claude's behavior when writing SLURM-related scripts.
 
 - **SLURM Shell Conventions** (`slurm-shell.md`) — Never `set -e` in SLURM scripts; use Apptainer containers (not conda); three-layer script structure (`submit_*.sh` → `sbatch_*.sh` → `run/*.sh`); build SIF on compute nodes with `/dev/shm` as TMPDIR
-- **Experiment File Management** (`experiment-files.md`) — Four-file system (PLAN / LOG / PITFALLS / weekly); LOG.md only holds milestones (no intermediate numbers); weekly log numbers must be verified from actual cluster output and tagged with source + date
+
+For experiment file conventions (LOG, weekly, PITFALLS, PLAN), see `research-workflow/rules/research-files.md`.
 
 ## Install
 
@@ -31,11 +38,11 @@ claude plugin install xxtars/claude-code-plugins/csc.fi-workflow
 ## Quick Start
 
 ```bash
-# 1. Configure your cluster connection
-/csc.fi-workflow:configure
+# 1. Scaffold research files (from research-workflow plugin)
+/research-workflow:init
 
-# 2. In a new project, scaffold experiment files
-/csc.fi-workflow:init
+# 2. Configure your cluster connection
+/csc.fi-workflow:configure
 
 # 3. Daily workflow
 /sync                    # push code to cluster
@@ -60,22 +67,7 @@ One-time setup per project. Collects SSH host, SLURM user/account, and remote pr
 2. **Validates SSH**: Runs `whoami && hostname` on the cluster to confirm connectivity
 3. **Validates remote path**: Checks the path exists and is writable (`test -d && test -w`) — catches typos before they cause silent failures later
 4. **Optional**: CSC-specific paths (scratch, datasets, SIF containers, HF cache, APPTAINER_TMPDIR), GitHub SSH aliases (if local and cluster use different configs), vLLM setup
-5. Writes everything to CLAUDE.md and suggests `/init` if experiment files don't exist yet
-
-### `/csc.fi-workflow:init`
-
-Scaffolds the experiment management structure:
-
-```
-experiments/
-  PLAN.md        <- What you're doing and why (research goal, pipeline, experiment design)
-  LOG.md         <- High-level progress (status table + milestone summaries)
-  PITFALLS.md    <- Lessons learned (symptom / root cause / fix / date)
-  weekly/
-    week-2026-04-07.md  <- Detailed job records + verified results
-```
-
-Does not overwrite existing files — asks before replacing.
+5. Writes everything to CLAUDE.md and suggests `/research-workflow:init` if experiment files don't exist yet
 
 ### `/csc.fi-workflow:sync`
 
@@ -125,33 +117,13 @@ Records job results into the weekly log and LOG.md.
 - **Three-section weekly log**: Job History (table), Verified Results (numbers from cluster), Notes (observations/decisions, no raw numbers)
 - LOG.md gets milestone status updates only — no intermediate numbers that go stale
 
-## Experiment Management
+## Experiment File Conventions
 
-### File Responsibilities
+File responsibilities (PLAN / LOG / weekly / PITFALLS) and the weekly log three-section format (Job History / Verified Results / Notes) are defined by `research-workflow`. See [`research-workflow/rules/research-files.md`](../research-workflow/rules/research-files.md).
 
-| File | Purpose | When to update |
-|------|---------|----------------|
-| `PLAN.md` | Research direction, pipeline design, experiment planning | When strategy changes |
-| `LOG.md` | Status table + milestone summaries + weekly log index | After each milestone |
-| `PITFALLS.md` | Lessons learned (symptom, root cause, fix) | When discovering new pitfalls |
-| `weekly/week-*.md` | Detailed job records + verified results + notes | During the week |
+The `Commit` column in the weekly Job History table records the git commit hash that was running, so any result is reproducible later.
 
-### Weekly Log Format
-
-Each weekly log has three sections:
-
-**Job History** — a table tracking every SLURM job:
-
-| Job Name | Job ID | Pipeline | Dataset | Partition | Submitted | Started | Finished | Status | Commit |
-|----------|--------|----------|---------|-----------|-----------|---------|----------|--------|--------|
-
-The `Commit` column records the git commit hash that was running, so you can reproduce any result later.
-
-**Verified Results** — numbers read from actual cluster output, tagged with source and date. Nothing is written here until the output file is read.
-
-**Notes** — observations, decisions, analysis. No raw numbers that might become stale.
-
-### SLURM Script Structure
+## SLURM Script Structure
 
 The plugin encourages a three-layer separation:
 

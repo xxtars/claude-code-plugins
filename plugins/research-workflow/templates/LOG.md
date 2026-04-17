@@ -1,6 +1,6 @@
 # Experiment Log
 
-Progress tracking. Research plan in [PLAN.md](PLAN.md), detailed records in weekly logs, lessons in [PITFALLS.md](PITFALLS.md).
+Execution state. Research direction in [PLAN.md](PLAN.md). Detailed runs in weekly logs. Operational lessons in [PITFALLS.md](PITFALLS.md).
 
 ---
 

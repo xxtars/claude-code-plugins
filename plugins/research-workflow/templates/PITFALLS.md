@@ -2,6 +2,8 @@
 
 Reference this file when debugging. Append new entries when you discover a pitfall.
 
+If a pitfall also invalidates a claim in [PLAN.md](PLAN.md) Story or Design, add an Iteration Log (L4) entry in PLAN pointing here.
+
 ---
 
 <!-- Example entry:

@@ -1,0 +1,8 @@
+{
+  "name": "memory-workflow",
+  "description": "Session wrap-up: categorize this session's decisions, dead ends, assumption corrections, and open items into the right project files. User-gated writes, no auto-compression.",
+  "author": {
+    "name": "Bohao Xing",
+    "email": "xxtar12138@gmail.com"
+  }
+}

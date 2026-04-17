@@ -17,17 +17,20 @@ If not found, suggest running `/csc.fi-workflow:configure`.
 
 ## File structure
 
-The experiment log uses a three-file system (see `rules/experiment-files.md` for details):
-- `experiments/LOG.md` — High-level status table + milestone results
-- `experiments/weekly/week-YYYY-MM-DD.md` — Detailed job records per week
-- `experiments/PITFALLS.md` — Lessons learned
+File conventions are defined in the `research-workflow` plugin (`research-workflow/rules/research-files.md`). Summary:
+- `experiments/LOG.md` — Stage status table + weekly index (no intermediate numbers)
+- `experiments/weekly/week-YYYY-MM-DD.md` — Job history + verified results + notes
+- `experiments/PITFALLS.md` — Operational lessons (symptom / root cause / fix / date)
+- `experiments/PLAN.md` — Research hub (not written by this skill; see `/research-workflow:iterate`)
+
+If the project doesn't have these files, suggest running `/research-workflow:init` first.
 
 ## Steps
 
 1. **Identify current weekly log**: Calculate the Monday of the current week:
    - Monday = today - (weekday index), where Monday=0, Sunday=6
    - Example: if today is Wednesday Apr 9, Monday = Apr 7 → `week-2026-04-07.md`
-   - Check if `experiments/weekly/week-YYYY-MM-DD.md` exists; if not, create it from the template (`templates/weekly/week-TEMPLATE.md`), filling in the date range in the header
+   - Check if `experiments/weekly/week-YYYY-MM-DD.md` exists; if not, create it from the template shipped with `research-workflow` (`research-workflow/templates/weekly/week-TEMPLATE.md`), filling in the date range in the header
 
 2. **Check what's new**: Query the cluster and diff against the weekly log:
    ```bash
