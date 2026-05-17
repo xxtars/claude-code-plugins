@@ -30,6 +30,12 @@
       "description": "Session wrap-up: categorize decisions, dead ends, assumption corrections, and open items; write user-approved entries to project files.",
       "source": "./plugins/memory-workflow",
       "category": "productivity"
+    },
+    {
+      "name": "web-paper-to-pdf",
+      "description": "Convert Distill-style web papers (transformer-circuits.pub, distill.pub, alignment.anthropic.com) into a clean academic-style PDF using LaTeX with the public NeurIPS 2024 template. Output PDFs are labelled as unofficial archival renderings.",
+      "source": "./plugins/web-paper-to-pdf",
+      "category": "productivity"
     }
   ]
 }
