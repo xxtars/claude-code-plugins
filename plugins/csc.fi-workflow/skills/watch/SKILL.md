@@ -1,235 +1,136 @@
 ---
 name: watch
-description: Monitor a SLURM job until it reaches a terminal state, then optionally chain to `/csc.fi-workflow:update-log`. Use when the user says "watch this job", "盯着", "tell me when done", or asks for automatic action on job completion. Pairs with `/csc.fi-workflow:check-jobs` (one-shot query) — `watch` is the continuous variant.
+description: Poll SLURM jobs at a fixed interval (default 1 h) and surface state/reason transitions to the local log and (optionally) Telegram. Use when the user says "watch", "盯着", "tell me when done", "监控 job", or wants to be notified about queue progress.
 ---
 
-# Watch SLURM Job(s)
+# Watch SLURM Jobs
 
-Monitor SLURM jobs until they reach a terminal state, then optionally record results.
+Poll `squeue` every `<interval>` (default **1 h**) for a fixed list of job IDs. On any change in `JobID|State|Reason|Elapsed|Timeleft`, log it locally and (if configured) push it to Telegram. The loop exits when all target jobs have left the queue, at which point a final `sacct` summary is emitted.
+
+There is one mode. No decision tree. State changes are state changes — queued→running, running→done, blocker-lifted, node-failed all use the same loop.
 
 ## Prerequisites
 
-Read the project's `CLAUDE.md` for:
-- **ssh_host**: from the Cluster section
-- **slurm_user**: from the Cluster section
-- **remote_path**: from the Cluster section
+From the project's `CLAUDE.md`:
+- **ssh_host** (Cluster section)
+- **slurm_user** (Cluster section)
+- **remote_path** (Cluster section)
 
-If not found, suggest running `/csc.fi-workflow:configure`.
+If missing, suggest `/csc.fi-workflow:configure`.
 
-## Watch modes
+Optional, for Telegram pushes:
+- `~/.claude/channels/telegram/.env` with `TELEGRAM_BOT_TOKEN=...`
+- `~/.claude/channels/telegram/access.json` with the chat ID in `allowFrom[0]`
 
-Pick one based on the decision tree below. Different modes have different reliability and latency tradeoffs.
+(Both produced by the `claude-plugins-official/telegram` configure flow. If the user hasn't set up Telegram, the watcher silently no-ops the push.)
 
-### Mode A — Foreground wait
+## Scope
 
-Blocks the current turn until the job finishes. Best for **<15 min** (gputest jobs).
+- **Target jobs are the explicit IDs passed at startup.** The watcher does not auto-discover. If the user submits new jobs mid-watch, restart the watcher with the extended list or launch a second watcher.
+- **One watcher per CC session.** Different CC instances don't share state — each starts its own background loop with its own job list. This is intentional: it keeps multi-CC clean.
 
-```bash
-until ssh <ssh_host> "sacct -j <jobid> -P -n --format=State 2>/dev/null | \
-    head -1 | grep -qE '^(COMPLETED|FAILED|CANCELLED|TIMEOUT|OUT_OF_MEMORY|NODE_FAIL|PREEMPTED|BOOT_FAIL)'"; do
-    sleep 30
-done
-```
+## The watcher
 
-Issue this as a regular foreground `Bash` call.
-
-### Mode B — Background polling (most common)
-
-Run as `Bash run_in_background: true`. Claude resumes via a `<task-notification>` when the loop exits. Best for **15 min – 3 h**.
+Launch with `Bash run_in_background: true`. The harness emits a `<task-notification>` when the loop exits.
 
 ```bash
-( until ssh <ssh_host> "sacct -j <jobid> -P -n --format=State 2>/dev/null | \
-    head -1 | grep -qE '^(COMPLETED|FAILED|CANCELLED|TIMEOUT|OUT_OF_MEMORY|NODE_FAIL|PREEMPTED|BOOT_FAIL)'"; do
-    sleep <interval>
-  done && \
-  ssh <ssh_host> "sacct -j <jobid> --format=JobID,State,Elapsed,ExitCode -p | head -3 && \
-                   echo --- log tail --- && \
-                   tail -30 <remote_path>/logs/<jobname>-<jobid>.out 2>/dev/null" )
-```
-
-### ⚠️ CRITICAL: keep the loop local
-
-The `until` / `sleep` MUST run on the local machine, **NOT inside the ssh quote**. Each iteration should open a fresh short SSH for the `sacct` query, then close it.
-
-The wrong form looks like:
-
-```bash
-# ❌ DO NOT USE
-ssh <ssh_host> "until sacct ...; do sleep 1800; done"
-```
-
-That puts the entire loop on the login node. Failure modes:
-- SSH idle disconnect → the loop becomes an orphan process on the login node; local Bash sees connection drop and reports a *false* failure to Claude.
-- Laptop sleep / network drop → SSH dies, local Bash exits, but Claude has no way to tell the difference between job failure and SSH failure.
-- CSC login nodes are not for long-running scripts (etiquette + admin can reap idle sessions).
-
-The correct form (above) is robust to transient network drops: a failed `ssh` returns non-zero, the `until` loop does not exit, the next `sleep` runs, and the loop retries on the next iteration. Laptop sleep pauses the local sleep and resumes cleanly. Login nodes only see brief connections.
-
-### Mode C — SLURM dependency chain
-
-Cluster-side automation. Best for **>3 h** jobs with a known follow-up step.
-
-```bash
-ssh <ssh_host> "cd <remote_path> && \
-    sbatch --dependency=afterok:<jobid> slurm/<follow_up.sh>"
-```
-
-- SLURM auto-launches `<follow_up.sh>` only after `<jobid>` exits 0.
-- Completely decoupled from local CC session — survives laptop shutdown, CC restart, anything.
-- Claude finds out about completion by running `/csc.fi-workflow:check-jobs` next time it's active.
-- The follow-up sbatch must exist before issuing the dependency.
-
-### Mode D — CronCreate periodic
-
-Re-invoke Claude at fixed intervals via the `CronCreate` tool. Best for **passive queue health checks** across many jobs.
-
-```
-CronCreate cron="7 */2 * * *"  prompt="run /csc.fi-workflow:check-jobs and flag any failures"
-```
-
-- Runs only while CC session is alive (default). Pass `durable=true` to persist across restarts.
-- Each fire costs context cache (full prompt re-read), so don't use this for single-job watching.
-- Auto-expires after 7 days for the recurring variant. Tell the user this.
-
-### Mode E — State-change watch (verbose)
-
-Like Mode B (background poll, loop stays local), but **prints every state transition** as it happens, not just the terminal result. Best for **PENDING-blocked jobs** (`ReqNodeNotAvail` / reservations / `Service_break` / `Dependency`) where the interesting event is the unblock → run → complete chain over hours-to-days, and the user wants to *see* it move.
-
-```bash
-( prev=""
-  while :; do
-    ts=$(date '+%Y-%m-%d %H:%M:%S')
-    cur=$(ssh <ssh_host> "squeue -j <jobids> -h -o '%i|%T|%R|%M|%L' 2>/dev/null")
-    if [[ "$cur" != "$prev" ]]; then
-      echo "===== [$ts] state change ====="
-      [[ -z "$cur" ]] && echo "(all jobs left the queue)" || printf '%s\n' "$cur" | column -t -s '|'
-      prev="$cur"
-    fi
-    [[ -z "$cur" ]] && break
-    sleep <interval>
-  done
-  ssh <ssh_host> "sacct -j <jobids> --format=JobID,JobName%24,State,Elapsed,ExitCode -p | head -20" )
-```
-
-Notes:
-- Uses `squeue` (not `sacct`) so the `Reason` column is visible — that's what changes when a blocker lifts (e.g., `ReqNodeNotAvail` → `Priority` → `(none)` → state flips to `RUNNING`).
-- Exit condition is "all jobs gone from the queue" — same end as Mode B AND-watch; the only behavioral difference is intermediate logging.
-- Default interval is **1 h** for blocked-PENDING (queue state changes slowly; faster polling spams the login node for no signal). Drop to a Mode B / table cadence once jobs are RUNNING if you want sharper terminal latency.
-- For laptop-sleep durability over multi-day blocks, the same Mode C advice applies — switch to `--dependency=` if there's a follow-up sbatch.
-
-## Decision tree
-
-```
-Q1: Is any target job currently PENDING with a queue-side blocker
-    (ReqNodeNotAvail, reservation, Service_break, Dependency)?
-    yes      → Mode E (state-change watch, 1 h interval)
-    no       → continue to Q2
-
-Q2: How long is the job's TIME_LIMIT?
-    <15 min  → Mode A (foreground wait)
-    15m–3h   → Mode B (background polling)
-    >3 h     → continue to Q3
-
-Q3: Is there a follow-up sbatch script that should run on success?
-    yes      → Mode C (SLURM dependency)
-    no       → Mode B with 30-min interval, plus suggest writing a follow-up sbatch and switching to Mode C
-
-Q4: Are we monitoring queue health across many jobs over time?
-    yes      → Mode D (CronCreate)
-```
-
-## Poll interval picker (matches the project's `feedback_slurm_poll_cadence` memory)
-
-| TIME_LIMIT  | sleep interval |
-|-------------|----------------|
-| <15 min     | 15 s           |
-| 15 min – 1 h | 60 s          |
-| 1 h – 6 h   | 5 min (300 s)  |
-| 6 h – 12 h  | 15 min (900 s) |
-| >12 h       | 30 min (1800 s) |
-| PENDING-blocked (Mode E) | 1 h (3600 s) |
-
-Match cadence to job length: too-frequent polling spams the login node with SSH connections; too-sparse loses minutes of latency at completion. For Mode E (state-change watch) the cadence tracks how often the *queue* changes, not how long the job runs — 1 h is the default unless the user knows the blocker lifts on a known schedule.
-
-## Steps
-
-1. **Identify target job(s)**. From user input ("watch 6666265"), recent `sbatch` output, or by running `squeue` and asking which one.
-
-2. **Get the TIME_LIMIT**:
-   ```bash
-   ssh <ssh_host> "squeue -j <jobid> --format='%l' -h"
-   ```
-   If the job has already left the queue (rare for new submissions but possible), read the sbatch script's `#SBATCH --time=` line.
-
-3. **Pick the mode** via the decision tree.
-
-4. **Pick the poll interval** from the table (only for Mode A/B).
-
-5. **Issue the watch command**:
-   - Mode A: foreground `Bash` call.
-   - Mode B: `Bash` with `run_in_background: true`. Save the returned background task ID; the user may want to inspect output mid-run.
-   - Mode C: `sbatch --dependency=...`; the next-step job is now queued.
-   - Mode D: `CronCreate` with the appropriate cron expression.
-
-6. **On completion** (Mode A/B):
-   - Show final state + last 30 lines of stdout/stderr.
-   - If state ∈ {FAILED, TIMEOUT, OUT_OF_MEMORY, NODE_FAIL}: diagnose using `scontrol show job` + stderr tail (same flow as `/csc.fi-workflow:check-jobs`).
-   - If the user asked for automatic logging, chain to `/csc.fi-workflow:update-log`.
-
-7. **For Mode C**: report the dependency chain and suggest a `check-jobs` invocation later to see the chain progress.
-
-## Multi-job watch
-
-For watching N jobs at once, two approaches:
-
-- **OR-watch** (any-finishes): wrap the `sacct -j j1,j2,j3 -P -n --format=JobID,State | head -N | grep -qE '...'` so the loop exits as soon as any of them hits a terminal state.
-- **AND-watch** (all-finish): use `! grep -qE 'PENDING|RUNNING'` so the loop exits only when none are still active.
-
-State the choice to the user before launching.
-
-## Optional: Telegram notifications
-
-If the user has the `claude-plugins-official/telegram` channel plugin configured, the watcher can push state-change and completion summaries to their phone via Telegram. Useful for Mode E (state changes happen overnight) and Mode B (long jobs that finish while user is away from terminal).
-
-**Use direct HTTP, NOT the MCP plugin.** The plugin's `reply` tool routes through the same `getUpdates` long-polling that breaks under multi-CC (see `feedback-telegram-multi-cc`). Plain `curl` to `api.telegram.org/bot<token>/sendMessage` is stateless HTTP and works regardless of how many CC instances are running.
-
-Detect config and define a helper at the top of the watcher script:
-
-```bash
+# --- Telegram helper (no-op if not configured) ---
 TG_ENV="$HOME/.claude/channels/telegram/.env"
 TG_ACCESS="$HOME/.claude/channels/telegram/access.json"
-if [[ -f "$TG_ENV" ]]; then set -a; source "$TG_ENV"; set +a; fi
-# chat_id from access.json's allowFrom[0]; user can override via TG_CHAT_ID
+[[ -f "$TG_ENV" ]] && { set -a; source "$TG_ENV"; set +a; }
 TG_CHAT_ID="${TG_CHAT_ID:-$(grep -oE '\"[0-9]+\"' "$TG_ACCESS" 2>/dev/null | head -1 | tr -d '\"')}"
-
 notify_telegram() {
   [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TG_CHAT_ID:-}" ]] && return 0
-  local msg="${1:0:3900}"   # 4096 char Telegram limit, leave headroom
+  local msg="${1:0:3900}"
   curl -fsS --max-time 10 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     --data-urlencode "chat_id=${TG_CHAT_ID}" \
     --data-urlencode "text=${msg}" >/dev/null 2>&1 || true
 }
+
+# --- Watcher loop ---
+JOBIDS="<comma,separated,ids>"
+INTERVAL=${INTERVAL:-3600}   # 1 h default
+LOG=${LOG:-/tmp/slurm_watch.log}
+
+notify_telegram "[watch] started — jobs=${JOBIDS} interval=${INTERVAL}s"
+
+( prev=""
+  while :; do
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    cur=$(ssh <ssh_host> "squeue -j ${JOBIDS} -h -o '%i|%T|%R|%M|%L' 2>/dev/null")
+    if [[ "$cur" != "$prev" ]]; then
+      header="===== [$ts] state change ====="
+      body=$([[ -z "$cur" ]] && echo "(all jobs left the queue)" || printf '%s\n' "$cur" | column -t -s '|')
+      printf '%s\n%s\n' "$header" "$body" | tee -a "$LOG"
+      notify_telegram "[watch] $ts
+$body"
+      prev="$cur"
+    fi
+    [[ -z "$cur" ]] && break
+    sleep "$INTERVAL"
+  done
+  summary=$(ssh <ssh_host> "sacct -j ${JOBIDS} --format=JobID,JobName%24,State,Elapsed,ExitCode -p | head -20")
+  printf '%s\n' "$summary" | tee -a "$LOG"
+  notify_telegram "[watch] DONE
+$summary"
+)
 ```
 
-Call sites by mode:
-- **Mode B**: one call on loop exit with the final `sacct` summary + log tail.
-- **Mode E**: one call on each state change (right after the local `echo` block), plus a final summary on exit. The transition message should include `JobID|State|Reason` so the user can read it without opening the laptop.
-- **Mode A**: skip — user is staring at the terminal.
+Behavior:
+- First tick fires immediately, so the initial state is also surfaced (compared against empty `prev`).
+- `squeue` shows the `Reason` column, which changes well before `State` does (e.g., `ReqNodeNotAvail` → `Priority` → empty → state flips to `RUNNING`). All such transitions get reported.
+- An ssh failure returns non-zero from the command substitution but doesn't kill the loop — `cur` is just empty for that tick and the next iteration retries. Don't add `set -e`.
+- Telegram failures are swallowed (`|| true`); the local log is always ground truth.
 
-Failure handling: `|| true` makes the curl non-fatal so a Telegram outage doesn't kill the watcher. The watcher's local log file is still the ground truth.
+## ⚠️ Critical: keep the loop local
 
-## Common pitfalls
+The `until`/`while`/`sleep` MUST run on the local machine. Each iteration opens a fresh short SSH for the `squeue` query and closes it.
 
-- ❌ `ssh host "until sacct ...; do sleep ...; done"` — see "CRITICAL: keep the loop local" above.
-- ❌ Polling every 15 s for a 6 h job — wastes ~1440 SSH connections.
-- ❌ Polling every 30 min for a 10 min job — completion latency dominates the job time.
-- ❌ Using Mode B for jobs >3 h when the laptop is expected to sleep — switch to Mode C.
-- ❌ Anchoring grep without `^` — `COMPLETED` may match the substring of `COMPLETED ` in other tools' output; always use `'^(COMPLETED|FAILED|...)'`.
-- ❌ Routing Telegram notifications through the MCP plugin's `reply` tool — that path is broken under multi-CC. Always use plain `curl` to `api.telegram.org/bot<token>/sendMessage` from the bash watcher (send-only, stateless HTTP, no plugin contention).
+```bash
+# ❌ DO NOT USE — entire loop on the login node
+ssh <ssh_host> "while :; do squeue ...; sleep 3600; done"
+```
+
+Failure modes of the wrong form:
+- SSH idle disconnect → orphan process on the login node; local Bash sees the drop and reports a *false* failure to Claude.
+- Laptop sleep / network drop → SSH dies, but Claude can't distinguish that from a job failure.
+- CSC login-node etiquette — admin may reap idle long-running shells.
+
+The correct form (above) is robust to transient drops: failed ssh returns non-zero, the next `sleep` runs, loop continues.
+
+## Interval guidance
+
+| job kind | interval |
+|----------|----------|
+| typical (queued or hours-long running) | 1 h (3600 s) |
+| `gputest` or `<15 min` job | 60 s |
+
+Default to 1 h unless the job is a short-burst (e.g., `gputest` partition with `--time=15:00`) — at 1 h cadence a short job runs and finishes between two polls and you see only "left queue" with no transition history. For research workloads (most jobs are 30 min – 24 h), 1 h is the right default: it catches `queued → running → done` cleanly and won't spam the login node.
+
+Don't go below 60 s — the SSH connection setup cost dominates and the login node gets noisy.
+
+## Steps
+
+1. **Collect job IDs** — from user input, recent `sbatch` output, or `squeue -u <slurm_user>`.
+2. **Pick interval** — default 1 h; drop to 60 s only for short-burst jobs.
+3. **Launch** the snippet above as `Bash` with `run_in_background: true`. Save the returned task ID so the user can inspect intermediate state via `Read` on the task output file.
+4. **On `<task-notification>` (loop exit)**:
+   - Read the final `sacct` summary from the output.
+   - If any job ended in `{FAILED, TIMEOUT, OUT_OF_MEMORY, NODE_FAIL}`, diagnose: `scontrol show job <jobid>` + stderr tail (same flow as `/csc.fi-workflow:check-jobs`).
+   - If the user wants logging, chain to `/csc.fi-workflow:update-log`.
+
+## Pitfalls
+
+- ❌ Putting `while`/`sleep` inside the ssh quote — see "Critical: keep the loop local".
+- ❌ Polling at 15 s for a 6 h job — wastes ~1400 SSH connections per job.
+- ❌ Polling at 1 h for a 5 min `gputest` job — loop sleeps through the entire job lifecycle.
+- ❌ Routing Telegram through the MCP plugin's `reply` tool — that path uses `getUpdates` long-polling which breaks under multi-CC ([feedback-telegram-multi-cc](../../../telegram/...)). Always use direct `curl` to `api.telegram.org/bot<token>/sendMessage` from the bash watcher — it's stateless HTTP and contention-free.
+- ❌ Anchoring without `^` when grepping SLURM states — `COMPLETED` matches `COMPLETEDFOOBAR`. Always anchor.
+- ❌ Auto-discovering jobs by name pattern inside the watcher — naming is a project convention, not a skill concern. Pass IDs explicitly.
 
 ## Notes
 
-- Terminal SLURM states (always include in the grep): `COMPLETED`, `FAILED`, `CANCELLED`, `TIMEOUT`, `OUT_OF_MEMORY`, `NODE_FAIL`, `PREEMPTED`, `BOOT_FAIL`.
-- `sacct` may need `--allusers` on some clusters; check what CSC's default behavior is for the project's account.
-- Job logs follow the SBATCH `--output` / `--error` paths; default location is `<remote_path>/logs/<jobname>-<jobid>.out`. Verify by reading `scontrol show job <jobid>` if unsure.
-- For jobs in `PENDING` state with a queue-side blocker (`ReqNodeNotAvail`, reservation, `Service_break`, `Dependency`), use **Mode E** at 1 h cadence — don't skip them. The whole point of watching is to catch the unblock → run → complete transitions, and `squeue`'s `Reason` column changes well before the state does. Also tell the user what the blocker is (read `scontrol show reservation` or check the maintenance schedule) so they can decide whether to keep waiting or resubmit elsewhere.
+- Terminal SLURM states (for the diagnose step): `COMPLETED`, `FAILED`, `CANCELLED`, `TIMEOUT`, `OUT_OF_MEMORY`, `NODE_FAIL`, `PREEMPTED`, `BOOT_FAIL`.
+- Job stdout/stderr live at `<remote_path>/logs/<jobname>-<jobid>.out` by default; confirm via `scontrol show job <jobid>` if unsure.
+- For jobs blocked by reservations (`Service_break` etc.), the watcher will sit at 1 h cadence and surface the unblock as a state change — no special handling needed. If the user asks "why is it blocked", read `scontrol show reservation` or `scontrol show job <jobid>` separately.
+- For long-running multi-day chains where laptop sleep / CC restart matters, the orthogonal answer is SLURM `--dependency=afterok:<jobid>` at *submit time* — that's part of `/csc.fi-workflow:submit`, not `watch`. The watcher will then see the chain progress naturally as state changes.
