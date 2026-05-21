@@ -18,6 +18,7 @@ Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/
    - **slurm_user**: SLURM username (for `squeue -u`)
    - **slurm_account**: SLURM account/project (for `#SBATCH --account`)
    - **remote_path**: Project path on the cluster (e.g., `/scratch/project_xxx/username/project-name`)
+   - **job_name_prefix**: Job name prefix used by this project's sbatch scripts (e.g., `ep-` for EmotionProbe, `nlgrpo-` for an RL run). Used by `/csc.fi-workflow:watch` to scope queue polling to this project when multiple projects share the same `slurm_user`. Suggest a default derived from the project directory basename (lowercase, short — `EmotionProbe` → `ep-`); confirm or override with the user. If the project genuinely has no naming convention, leave empty — `/csc.fi-workflow:watch` will then require an explicit `JOBIDS=` list.
 
 3. Validate SSH connection: `ssh <ssh_host> "whoami && hostname"`. If it fails, help debug.
 
@@ -34,8 +35,10 @@ Set up the Cluster section in the project's `CLAUDE.md` so that other skills (`/
    - Usage: `ssh <ssh_host> "cd <remote_path> && <command>"`
    - SLURM user: `<slurm_user>`
    - SLURM account: `<slurm_account>`
+   - Job name prefix: `<job_name_prefix>` (used by `/csc.fi-workflow:watch` to scope queue polling to this project)
    - All commands run from project root
    ```
+   Omit the `Job name prefix` line entirely if the user left it empty.
 
 ### Phase 2: Optional (ask "Do you want to configure X?")
 
