@@ -91,19 +91,50 @@ CronCreate cron="7 */2 * * *"  prompt="run /csc.fi-workflow:check-jobs and flag 
 - Each fire costs context cache (full prompt re-read), so don't use this for single-job watching.
 - Auto-expires after 7 days for the recurring variant. Tell the user this.
 
+### Mode E — State-change watch (verbose)
+
+Like Mode B (background poll, loop stays local), but **prints every state transition** as it happens, not just the terminal result. Best for **PENDING-blocked jobs** (`ReqNodeNotAvail` / reservations / `Service_break` / `Dependency`) where the interesting event is the unblock → run → complete chain over hours-to-days, and the user wants to *see* it move.
+
+```bash
+( prev=""
+  while :; do
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    cur=$(ssh <ssh_host> "squeue -j <jobids> -h -o '%i|%T|%R|%M|%L' 2>/dev/null")
+    if [[ "$cur" != "$prev" ]]; then
+      echo "===== [$ts] state change ====="
+      [[ -z "$cur" ]] && echo "(all jobs left the queue)" || printf '%s\n' "$cur" | column -t -s '|'
+      prev="$cur"
+    fi
+    [[ -z "$cur" ]] && break
+    sleep <interval>
+  done
+  ssh <ssh_host> "sacct -j <jobids> --format=JobID,JobName%24,State,Elapsed,ExitCode -p | head -20" )
+```
+
+Notes:
+- Uses `squeue` (not `sacct`) so the `Reason` column is visible — that's what changes when a blocker lifts (e.g., `ReqNodeNotAvail` → `Priority` → `(none)` → state flips to `RUNNING`).
+- Exit condition is "all jobs gone from the queue" — same end as Mode B AND-watch; the only behavioral difference is intermediate logging.
+- Default interval is **1 h** for blocked-PENDING (queue state changes slowly; faster polling spams the login node for no signal). Drop to a Mode B / table cadence once jobs are RUNNING if you want sharper terminal latency.
+- For laptop-sleep durability over multi-day blocks, the same Mode C advice applies — switch to `--dependency=` if there's a follow-up sbatch.
+
 ## Decision tree
 
 ```
-Q1: How long is the job's TIME_LIMIT?
+Q1: Is any target job currently PENDING with a queue-side blocker
+    (ReqNodeNotAvail, reservation, Service_break, Dependency)?
+    yes      → Mode E (state-change watch, 1 h interval)
+    no       → continue to Q2
+
+Q2: How long is the job's TIME_LIMIT?
     <15 min  → Mode A (foreground wait)
     15m–3h   → Mode B (background polling)
-    >3 h     → continue to Q2
+    >3 h     → continue to Q3
 
-Q2: Is there a follow-up sbatch script that should run on success?
+Q3: Is there a follow-up sbatch script that should run on success?
     yes      → Mode C (SLURM dependency)
     no       → Mode B with 30-min interval, plus suggest writing a follow-up sbatch and switching to Mode C
 
-Q3: Are we monitoring queue health across many jobs over time?
+Q4: Are we monitoring queue health across many jobs over time?
     yes      → Mode D (CronCreate)
 ```
 
@@ -116,8 +147,9 @@ Q3: Are we monitoring queue health across many jobs over time?
 | 1 h – 6 h   | 5 min (300 s)  |
 | 6 h – 12 h  | 15 min (900 s) |
 | >12 h       | 30 min (1800 s) |
+| PENDING-blocked (Mode E) | 1 h (3600 s) |
 
-Match cadence to job length: too-frequent polling spams the login node with SSH connections; too-sparse loses minutes of latency at completion.
+Match cadence to job length: too-frequent polling spams the login node with SSH connections; too-sparse loses minutes of latency at completion. For Mode E (state-change watch) the cadence tracks how often the *queue* changes, not how long the job runs — 1 h is the default unless the user knows the blocker lifts on a known schedule.
 
 ## Steps
 
@@ -168,4 +200,4 @@ State the choice to the user before launching.
 - Terminal SLURM states (always include in the grep): `COMPLETED`, `FAILED`, `CANCELLED`, `TIMEOUT`, `OUT_OF_MEMORY`, `NODE_FAIL`, `PREEMPTED`, `BOOT_FAIL`.
 - `sacct` may need `--allusers` on some clusters; check what CSC's default behavior is for the project's account.
 - Job logs follow the SBATCH `--output` / `--error` paths; default location is `<remote_path>/logs/<jobname>-<jobid>.out`. Verify by reading `scontrol show job <jobid>` if unsure.
-- For jobs in `PENDING` state with `(ReqNodeNotAvail)` reason, watching is wasted — recommend `/csc.fi-workflow:check-jobs` instead to inspect the blocker (reserved nodes, maintenance windows, etc.) and decide whether to wait or rescheduling.
+- For jobs in `PENDING` state with a queue-side blocker (`ReqNodeNotAvail`, reservation, `Service_break`, `Dependency`), use **Mode E** at 1 h cadence — don't skip them. The whole point of watching is to catch the unblock → run → complete transitions, and `squeue`'s `Reason` column changes well before the state does. Also tell the user what the blocker is (read `scontrol show reservation` or check the maintenance schedule) so they can decide whether to keep waiting or resubmit elsewhere.
