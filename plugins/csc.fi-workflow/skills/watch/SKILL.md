@@ -60,7 +60,12 @@ notify_telegram "[watch] started — jobs=${JOBIDS} interval=${INTERVAL}s"
     cur=$(ssh <ssh_host> "squeue -j ${JOBIDS} -h -o '%i|%T|%R|%M|%L' 2>/dev/null")
     if [[ "$cur" != "$prev" ]]; then
       header="===== [$ts] state change ====="
-      body=$([[ -z "$cur" ]] && echo "(all jobs left the queue)" || printf '%s\n' "$cur" | column -t -s '|')
+      if [[ -z "$cur" ]]; then
+        body="(all jobs left the queue)"
+      else
+        # Prepend a column-header row so Elapsed/Timeleft are labeled in Telegram
+        body=$(printf 'JobID|State|Reason|Elapsed|Timeleft\n%s\n' "$cur" | column -t -s '|')
+      fi
       printf '%s\n%s\n' "$header" "$body" | tee -a "$LOG"
       notify_telegram "[watch] $ts
 $body"
