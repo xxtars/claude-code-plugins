@@ -17,7 +17,8 @@ File conventions for `experiments/PLAN.md`, `LOG.md`, `weekly/`, and `PITFALLS.m
 |-------|---------|-------------|
 | Configure | `/csc.fi-workflow:configure` | Set up cluster connection (SSH, account, paths) |
 | Sync | `/csc.fi-workflow:sync` | Push code to cluster: `commit → push → ssh pull` |
-| Check Jobs | `/csc.fi-workflow:check-jobs` | Query SLURM queue and recent job status |
+| Check Jobs | `/csc.fi-workflow:check-jobs` | Query SLURM queue and recent job status (one-shot) |
+| Watch | `/csc.fi-workflow:watch` | Monitor a SLURM job until completion (background polling, dependency chain, or periodic cron) |
 | Submit | `/csc.fi-workflow:submit` | Submit SLURM job and auto-record in experiment log |
 | Update Log | `/csc.fi-workflow:update-log` | Record job results into structured experiment logs |
 
@@ -92,6 +93,20 @@ Queries `squeue` (active) and `sacct` (recent 3 days) in a single SSH call.
 - **Project-level filtering**: Reads job names from your weekly log and LOG.md to identify which jobs belong to the current project. Jobs from other projects are shown separately so you can focus on what matters
 - Filters out `.batch` and `.extern` sub-jobs from sacct output
 - All timestamps use the cluster's timezone (via remote `date` command, not local)
+
+### `/csc.fi-workflow:watch`
+
+Continuous variant of `check-jobs`: monitor one or more SLURM jobs until they reach a terminal state, then optionally chain to `update-log`.
+
+**Four modes** with explicit selection rules:
+- **A — Foreground wait** (<15 min): block the current Bash turn with a local `until` loop, short-poll `sacct` until done.
+- **B — Background polling** (15 min – 3 h): same loop but `run_in_background: true`; Claude resumes via `<task-notification>` on exit.
+- **C — SLURM dependency** (>3 h with known follow-up): `sbatch --dependency=afterok:<jobid> <follow_up>`. Cluster-side, survives laptop sleep / CC restart.
+- **D — `CronCreate` periodic**: re-invoke Claude at fixed intervals across many jobs.
+
+**Key correctness rule**: the polling loop must run *locally*, with each iteration opening a fresh short SSH for `sacct`. The wrong form (`ssh host "until ...; do sleep N; done"`) puts the loop on the login node, where SSH drops become false-positive failures and the loop becomes an orphan process. The skill documents this pitfall.
+
+The skill picks the poll interval from a small table that scales with `--time` (15 s for <15 min, up to 30 min for >12 h).
 
 ### `/csc.fi-workflow:submit`
 
