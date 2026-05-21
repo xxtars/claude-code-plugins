@@ -187,6 +187,37 @@ For watching N jobs at once, two approaches:
 
 State the choice to the user before launching.
 
+## Optional: Telegram notifications
+
+If the user has the `claude-plugins-official/telegram` channel plugin configured, the watcher can push state-change and completion summaries to their phone via Telegram. Useful for Mode E (state changes happen overnight) and Mode B (long jobs that finish while user is away from terminal).
+
+**Use direct HTTP, NOT the MCP plugin.** The plugin's `reply` tool routes through the same `getUpdates` long-polling that breaks under multi-CC (see `feedback-telegram-multi-cc`). Plain `curl` to `api.telegram.org/bot<token>/sendMessage` is stateless HTTP and works regardless of how many CC instances are running.
+
+Detect config and define a helper at the top of the watcher script:
+
+```bash
+TG_ENV="$HOME/.claude/channels/telegram/.env"
+TG_ACCESS="$HOME/.claude/channels/telegram/access.json"
+if [[ -f "$TG_ENV" ]]; then set -a; source "$TG_ENV"; set +a; fi
+# chat_id from access.json's allowFrom[0]; user can override via TG_CHAT_ID
+TG_CHAT_ID="${TG_CHAT_ID:-$(grep -oE '\"[0-9]+\"' "$TG_ACCESS" 2>/dev/null | head -1 | tr -d '\"')}"
+
+notify_telegram() {
+  [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TG_CHAT_ID:-}" ]] && return 0
+  local msg="${1:0:3900}"   # 4096 char Telegram limit, leave headroom
+  curl -fsS --max-time 10 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TG_CHAT_ID}" \
+    --data-urlencode "text=${msg}" >/dev/null 2>&1 || true
+}
+```
+
+Call sites by mode:
+- **Mode B**: one call on loop exit with the final `sacct` summary + log tail.
+- **Mode E**: one call on each state change (right after the local `echo` block), plus a final summary on exit. The transition message should include `JobID|State|Reason` so the user can read it without opening the laptop.
+- **Mode A**: skip — user is staring at the terminal.
+
+Failure handling: `|| true` makes the curl non-fatal so a Telegram outage doesn't kill the watcher. The watcher's local log file is still the ground truth.
+
 ## Common pitfalls
 
 - ❌ `ssh host "until sacct ...; do sleep ...; done"` — see "CRITICAL: keep the loop local" above.
@@ -194,6 +225,7 @@ State the choice to the user before launching.
 - ❌ Polling every 30 min for a 10 min job — completion latency dominates the job time.
 - ❌ Using Mode B for jobs >3 h when the laptop is expected to sleep — switch to Mode C.
 - ❌ Anchoring grep without `^` — `COMPLETED` may match the substring of `COMPLETED ` in other tools' output; always use `'^(COMPLETED|FAILED|...)'`.
+- ❌ Routing Telegram notifications through the MCP plugin's `reply` tool — that path is broken under multi-CC. Always use plain `curl` to `api.telegram.org/bot<token>/sendMessage` from the bash watcher (send-only, stateless HTTP, no plugin contention).
 
 ## Notes
 
